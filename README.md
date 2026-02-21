@@ -226,6 +226,53 @@ This sequential ordering is **guaranteed by Terraform's engine** without race co
 
 No explicit `depends_on` is needed—the attribute references automatically encode all dependencies.
 
+**Visualizing the Dependency Graph:**
+
+To see the actual DAG that Terraform builds, use:
+
+```powershell
+# View the graph in DOT format
+terraform graph
+
+# Convert to SVG with Graphviz (requires: choco install graphviz)
+terraform graph | dot -Tsvg -o graph.svg
+```
+
+Or visualize it interactively at [Graphviz Online](https://dreampuf.github.io/GraphvizOnline/) by copying the output from `terraform graph`.
+
+**Actual Dependency Graph for This Configuration:**
+
+```mermaid
+graph TD
+    A["random_uuid<br/>app_role_id"]
+    B["data.azuread_client_config<br/>current"]
+    C["azuread_application<br/>apps"]
+    D["azuread_service_principal<br/>apps"]
+    E["azuread_app_role_assignment<br/>assignments"]
+    F["azuread_application_password<br/>apps"]
+
+    C --> A
+    C --> B
+    D --> C
+    E --> D
+    E --> C
+    F --> C
+
+    style A fill:#e1f5ff
+    style B fill:#e1f5ff
+    style C fill:#fff3e0
+    style D fill:#f3e5f5
+    style E fill:#e8f5e9
+    style F fill:#f3e5f5
+```
+
+**Execution Order:**
+1. **Data**: `azuread_client_config.current` (reads existing Entra ID tenant info)
+2. **Random UUIDs**: `random_uuid.app_role_id` (generates role IDs)
+3. **Applications**: `azuread_application.apps` (depends on UUIDs and client config)
+4. **Service Principals**: `azuread_service_principal.apps` (depends on applications)
+5. **Assignments & Passwords**: Can execute in parallel after their dependencies (Service Principals and Applications)
+
 ## Usage
 
 ### Assigning App Roles to Users
