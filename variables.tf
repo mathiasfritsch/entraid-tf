@@ -119,3 +119,20 @@ variable "required_resource_access" {
     }
   ]
 }
+
+variable "app_role_assignments" {
+  description = "App role assignments: which application gets access to which role on which resource"
+  type = list(object({
+    principal_app = string # Application key that receives the role
+    resource_app  = string # Application key that owns/provides the role
+    role_name     = string # Role display name or value
+  }))
+
+  default = [
+    {
+      principal_app = "transactions"
+      resource_app  = "documents"
+      role_name     = "Documents.Read"
+    }
+  ]
+}

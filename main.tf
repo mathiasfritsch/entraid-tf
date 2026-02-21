@@ -110,11 +110,16 @@ resource "azuread_service_principal" "apps" {
   tags = var.service_principal_tags
 }
 
-# Grant transactions application access to Documents.Read app role
-resource "azuread_app_role_assignment" "transactions_documents_read" {
-  app_role_id         = azuread_application.apps["documents"].app_role_ids["Documents.Read"]
-  principal_object_id = azuread_service_principal.apps["transactions"].object_id
-  resource_object_id  = azuread_service_principal.apps["documents"].object_id
+# Assign app roles to applications as defined in variables
+resource "azuread_app_role_assignment" "assignments" {
+  for_each = {
+    for idx, assignment in var.app_role_assignments :
+    "${assignment.principal_app}-${assignment.resource_app}-${assignment.role_name}" => assignment
+  }
+
+  app_role_id         = azuread_application.apps[each.value.resource_app].app_role_ids[each.value.role_name]
+  principal_object_id = azuread_service_principal.apps[each.value.principal_app].object_id
+  resource_object_id  = azuread_service_principal.apps[each.value.resource_app].object_id
 }
 
 # Optional: Create application password (client secret) for each application
