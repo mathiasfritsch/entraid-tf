@@ -18,13 +18,13 @@ variable "applications" {
           display_name         = "Transactions.Read"
           description          = "Allows read access to transaction resources"
           value                = "Transactions.Read"
-          allowed_member_types = ["User", "Application"]
+          allowed_member_types = ["User"]
         },
         {
           display_name         = "Transactions.Write"
           description          = "Allows write access to transaction resources"
           value                = "Transactions.Write"
-          allowed_member_types = ["User", "Application"]
+          allowed_member_types = ["User"]
         }
       ]
     }
@@ -35,13 +35,13 @@ variable "applications" {
           display_name         = "Documents.Read"
           description          = "Allows read access to document resources"
           value                = "Documents.Read"
-          allowed_member_types = ["User", "Application"]
+          allowed_member_types = ["User"]
         },
         {
           display_name         = "Documents.Write"
           description          = "Allows write access to document resources"
           value                = "Documents.Write"
-          allowed_member_types = ["User", "Application"]
+          allowed_member_types = ["User"]
         }
       ]
     }

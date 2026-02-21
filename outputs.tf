@@ -1,66 +1,57 @@
-output "application_id" {
-  description = "The Application (Client) ID of the Entra ID application"
-  value       = azuread_application.main.client_id
-}
-
-output "application_object_id" {
-  description = "The Object ID of the Entra ID application"
-  value       = azuread_application.main.object_id
-}
-
-output "application_name" {
-  description = "The display name of the Entra ID application"
-  value       = azuread_application.main.display_name
-}
-
-output "service_principal_id" {
-  description = "The Application ID of the service principal (same as application_id)"
-  value       = azuread_service_principal.main.client_id
-}
-
-output "service_principal_object_id" {
-  description = "The Object ID of the service principal"
-  value       = azuread_service_principal.main.object_id
-}
-
-output "app_roles" {
-  description = "Map of app role values to their IDs"
+output "applications" {
+  description = "Map of all created applications with their details"
   value = {
-    for role in azuread_application.main.app_role :
-    role.value => role.id
+    for app_key, app in azuread_application.apps : app_key => {
+      application_id        = app.client_id
+      application_object_id = app.object_id
+      display_name          = app.display_name
+      app_roles = {
+        for role in app.app_role :
+        role.value => {
+          id           = role.id
+          display_name = role.display_name
+          description  = role.description
+        }
+      }
+    }
   }
 }
 
-output "app_role_ids" {
-  description = "List of app role IDs"
-  value       = [for role in azuread_application.main.app_role : role.id]
-}
-
-output "app_role_details" {
-  description = "Detailed information about each app role"
-  value = [
-    for role in azuread_application.main.app_role : {
-      id                   = role.id
-      display_name         = role.display_name
-      value                = role.value
-      description          = role.description
-      allowed_member_types = role.allowed_member_types
+output "service_principals" {
+  description = "Map of all created service principals"
+  value = {
+    for app_key, sp in azuread_service_principal.apps : app_key => {
+      service_principal_id        = sp.client_id
+      service_principal_object_id = sp.object_id
+      display_name                = sp.display_name
     }
-  ]
+  }
 }
 
-output "client_secret_value" {
-  description = "The client secret value (only available if create_client_secret is true)"
-  value       = var.create_client_secret ? azuread_application_password.main[0].value : null
-  sensitive   = true
-}
-
-output "client_secret_key_id" {
-  description = "The key ID of the client secret"
-  value       = var.create_client_secret ? azuread_application_password.main[0].key_id : null
+output "client_secrets" {
+  description = "Map of client secrets for applications (only if create_client_secret is true)"
+  value = {
+    for app_key, secret in azuread_application_password.apps : app_key => {
+      key_id = secret.key_id
+      value  = secret.value
+    }
+  }
+  sensitive = true
 }
 
 output "tenant_id" {
-  description = "The tenant ID where the application is registered"
+  description = "The tenant ID where the applications are registered"
   value       = data.azuread_client_config.current.tenant_id
+}
+
+output "summary" {
+  description = "Summary of all created applications"
+  value = {
+    for app_key, app in azuread_application.apps : app_key => {
+      name           = app.display_name
+      application_id = app.client_id
+      role_count     = length(app.app_role)
+      roles          = [for role in app.app_role : role.value]
+    }
+  }
 }

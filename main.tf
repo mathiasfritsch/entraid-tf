@@ -21,25 +21,41 @@ provider "azuread" {
 # Data source to get current client configuration
 data "azuread_client_config" "current" {}
 
-# Generate random UUIDs for app role IDs
-resource "random_uuid" "app_role_id" {
-  for_each = { for idx, role in var.app_roles : idx => role }
+# Generate random UUIDs for app role IDs for each application
+locals {
+  # Flatten app roles with their app keys for UUID generation
+  app_roles_flattened = flatten([
+    for app_key, app in var.applications : [
+      for role_idx, role in app.app_roles : {
+        app_key   = app_key
+        role_idx  = role_idx
+        role      = role
+        unique_id = "${app_key}-${role_idx}"
+      }
+    ]
+  ])
 }
 
-# Create the Entra ID Application
-resource "azuread_application" "main" {
-  display_name = var.app_name
+resource "random_uuid" "app_role_id" {
+  for_each = { for item in local.app_roles_flattened : item.unique_id => item }
+}
+
+# Create the Entra ID Applications
+resource "azuread_application" "apps" {
+  for_each = var.applications
+
+  display_name = each.value.display_name
   owners       = [data.azuread_client_config.current.object_id]
 
   # App roles for role-based access control
   dynamic "app_role" {
-    for_each = var.app_roles
+    for_each = each.value.app_roles
     content {
       allowed_member_types = app_role.value.allowed_member_types
       description          = app_role.value.description
       display_name         = app_role.value.display_name
       enabled              = true
-      id                   = random_uuid.app_role_id[app_role.key].result
+      id                   = random_uuid.app_role_id["${each.key}-${app_role.key}"].result
       value                = app_role.value.value
     }
   }
@@ -83,20 +99,22 @@ resource "azuread_application" "main" {
   }
 }
 
-# Create Service Principal for the application
-resource "azuread_service_principal" "main" {
-  client_id                    = azuread_application.main.client_id
+# Create Service Principal for each application
+resource "azuread_service_principal" "apps" {
+  for_each = var.applications
+
+  client_id                    = azuread_application.apps[each.key].client_id
   app_role_assignment_required = var.app_role_assignment_required
   owners                       = [data.azuread_client_config.current.object_id]
 
   tags = var.service_principal_tags
 }
 
-# Optional: Create application password (client secret)
-resource "azuread_application_password" "main" {
-  count = var.create_client_secret ? 1 : 0
+# Optional: Create application password (client secret) for each application
+resource "azuread_application_password" "apps" {
+  for_each = var.create_client_secret ? var.applications : {}
 
-  application_id = azuread_application.main.id
+  application_id = azuread_application.apps[each.key].id
   display_name   = "Terraform-managed secret"
   end_date       = var.client_secret_end_date
 }
