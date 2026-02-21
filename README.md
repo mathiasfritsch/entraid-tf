@@ -68,12 +68,22 @@ terraform init
 
 This downloads the `azuread` provider.
 
+Or run one command to initialize and create the plan artifacts:
+```powershell
+.\setup.ps1
+```
+
 ### 3. Preview Changes
 ```powershell
-terraform plan
+terraform plan -out=tfplan
 ```
 
 Review the resources that will be created.
+
+Optional readable text output:
+```powershell
+terraform show -no-color tfplan > tfplan.txt
+```
 
 ### 4. Create Resources
 ```powershell

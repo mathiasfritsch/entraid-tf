@@ -110,6 +110,13 @@ resource "azuread_service_principal" "apps" {
   tags = var.service_principal_tags
 }
 
+# Grant transactions application access to Documents.Read app role
+resource "azuread_app_role_assignment" "transactions_documents_read" {
+  app_role_id         = azuread_application.apps["documents"].app_role_ids["Documents.Read"]
+  principal_object_id = azuread_service_principal.apps["transactions"].object_id
+  resource_object_id  = azuread_service_principal.apps["documents"].object_id
+}
+
 # Optional: Create application password (client secret) for each application
 resource "azuread_application_password" "apps" {
   for_each = var.create_client_secret ? var.applications : {}
