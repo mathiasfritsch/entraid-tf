@@ -166,6 +166,66 @@ Common Microsoft Graph permission IDs:
 - `06da0dbc-49e2-44d2-8312-53f166ab848a` - Directory.Read.All (delegated)
 - `df021288-bdef-4463-88db-98f22de89214` - User.Read.All (application)
 
+### App Role Assignments Between Applications
+
+Grant one application access to roles defined on another application:
+
+```hcl
+app_role_assignments = [
+  {
+    principal_app = "transactions"
+    resource_app  = "documents"
+    role_name     = "Documents.Read"
+  },
+  {
+    principal_app = "documents"
+    resource_app  = "transactions"
+    role_name     = "Transactions.Read"
+  }
+]
+```
+
+This allows the `transactions` app to act with the `Documents.Read` role on the `documents` app, enabling service-to-service communication and delegation of permissions.
+
+**How Terraform Handles Dependencies:**
+
+Role assignments automatically respect the creation order through Terraform's **implicit dependency graph**. When role assignment resources reference attributes from other resources:
+
+```hcl
+app_role_id         = azuread_application.apps[...].app_role_ids[...]
+principal_object_id = azuread_service_principal.apps[...].object_id
+resource_object_id  = azuread_service_principal.apps[...].object_id
+```
+
+Terraform detects these attribute references and builds a **DAG (Directed Acyclic Graph)** with explicit edges representing dependencies.
+
+**Concrete Dependency Chain:**
+
+For a typical deployment, the DAG execution order is guaranteed to be:
+
+1. **Random UUIDs** (no dependencies)
+   - `random_uuid.app_role_id[...]` creates unique IDs for app roles
+
+2. **Applications** (depend on Random UUIDs)
+   - `azuread_application.apps["documents"]` uses `random_uuid.app_role_id[...]` for role IDs
+   - `azuread_application.apps["transactions"]` uses `random_uuid.app_role_id[...]` for role IDs
+
+3. **Service Principals** (depend on Applications)
+   - `azuread_service_principal.apps["documents"]` references `azuread_application.apps["documents"].client_id`
+   - `azuread_service_principal.apps["transactions"]` references `azuread_application.apps["transactions"].client_id`
+
+4. **App Role Assignments** (depend on Applications AND Service Principals)
+   - `azuread_app_role_assignment.assignments[...]` references:
+     - `azuread_application.apps[...].app_role_ids[...]` ← requires step 2
+     - `azuread_service_principal.apps[...].object_id` ← requires step 3
+
+This sequential ordering is **guaranteed by Terraform's engine** without race conditions because:
+- Each resource waits for all of its dependencies to complete
+- Terraform respects the DAG when determining parallelization
+- Resources with independent dependencies (e.g., two different applications) can still execute in parallel
+
+No explicit `depends_on` is needed—the attribute references automatically encode all dependencies.
+
 ## Usage
 
 ### Assigning App Roles to Users
